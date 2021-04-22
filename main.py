@@ -15,20 +15,12 @@ def fetch_devman_attempts(url, devman_toeken, timestamp, timeout=90):
     payload = {
         'timestamp': timestamp
     }
-    while True:
-        try:
-            response = requests.get(
-                url,
-                headers=headers,
-                params=payload,
-                timeout=timeout
-            )
-            response.raise_for_status()
-            break
-        except (Timeout, ConnectionError) as e:
-            logging.error(e)
-            time.sleep(timeout)
-            continue
+    response = requests.get(
+        url,
+        headers=headers,
+        params=payload,
+        timeout=timeout
+    )
     return response.json()
 
 
@@ -50,12 +42,20 @@ if __name__ == '__main__':
     bot = telegram.Bot(token=os.getenv('TELEGRAM_BOT_TOKEN'))
     timestamp = time.time()
     while True:
-        response = fetch_devman_attempts(
-            DEVMAN_ATTEMPTS_URL,
-            devman_api_token,
-            timestamp
-        )
-        if (response['status'] == 'found'):
+        try:
+            response = fetch_devman_attempts(
+                DEVMAN_ATTEMPTS_URL,
+                devman_api_token,
+                timestamp
+            )
+        except ConnectionError as e:
+            time.sleep(10)
+            logging.exception(e)
+            continue
+        except Timeout:
+            logging.exception(e)
+            continue
+        if response['status'] == 'found':
             for attempt in response['new_attempts']:
                 bot.send_message(
                     telegram_chat_id,
